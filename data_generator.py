@@ -40,7 +40,7 @@ def generate_initial_data(num_customers=800, num_transactions=4000):
     customers = []
     for i in range(1, num_customers + 1):
         acc_type = random.choice(account_types)
-        min_bal = 500 if acc_type != 'Salary' else 0
+        min_bal = 1000 if acc_type != 'Salary' else 0
             
         bal = round(random.uniform(100, 1900), 2)
         min_bal_violation = 1 if bal < min_bal else 0

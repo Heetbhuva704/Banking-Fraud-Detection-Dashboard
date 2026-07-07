@@ -332,7 +332,7 @@ with t3:
         
     st.markdown("---")
     st.markdown("<h4>🤖 Autonomous Risk Bot (Live Agent Action Log)</h4>", unsafe_allow_html=True)
-    st.info("The AI Agent actively monitors incoming telemetry and executes autonomous actions based on probability thresholds (50-75% Review | 75-85% Warn | >85% Block).")
+    st.info("The AI Agent actively monitors incoming telemetry and executes autonomous actions based on probability thresholds (50-75% Warn | 75-85% Employee Review | >85% Auto-Block).")
     
     bot_c1, bot_c2, bot_c3 = st.columns(3)
     
@@ -356,14 +356,14 @@ with t3:
                         st.session_state['blocked_accounts'].append(cust)
                         st.session_state['bot_logs'].append({'time': t_str, 'action': 'BLOCK', 'cust': cust, 'prob': prob})
                 elif 75 < prob <= 85:
-                    st.session_state['bot_logs'].append({'time': t_str, 'action': 'WARN', 'cust': cust, 'prob': prob})
-                elif 50 <= prob <= 75:
                     st.session_state['bot_logs'].append({'time': t_str, 'action': 'REVIEW', 'cust': cust, 'prob': prob})
                     if not any(r['txn_id'] == txn_id for r in st.session_state['review_queue']):
                         st.session_state['review_queue'].append({
-                            'txn_id': txn_id, 'cust': cust, 'prob': prob, 
+                            'txn_id': txn_id, 'cust': cust, 'prob': prob,
                             'alert': row['pattern_alert'], 'category': row['category'], 'mode': row['mode']
                         })
+                elif 50 <= prob <= 75:
+                    st.session_state['bot_logs'].append({'time': t_str, 'action': 'WARN', 'cust': cust, 'prob': prob})
                     
                 st.session_state[f"bot_processed_{txn_id}"] = True
                 
@@ -377,27 +377,36 @@ with t3:
             st.caption("No recent blocks.")
             
     with bot_c2:
-        st.markdown("**⚠️ Warnings Issued (75-85%)**")
-        warns = [log for log in st.session_state['bot_logs'] if log['action'] == 'WARN']
-        if warns:
-            for w in warns[-3:]:
-                st.markdown(f"<div style='background: rgba(245, 158, 11, 0.1); border-left: 3px solid #F59E0B; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; color: #E5E7EB;'>[{w['time']}] Warned {w['cust']} ({w['prob']:.1f}%)</div>", unsafe_allow_html=True)
-        else:
-            st.caption("No recent warnings.")
-            
-    with bot_c3:
-        st.markdown("**👁️ Marked for Review (50-75%)**")
+        st.markdown("**👁️ Employee Review Queue (75-85%)**")
         reviews = [log for log in st.session_state['bot_logs'] if log['action'] == 'REVIEW']
         if reviews:
             for r in reviews[-3:]:
                 st.markdown(f"<div style='background: rgba(6, 182, 212, 0.1); border-left: 3px solid #06B6D4; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; color: #E5E7EB;'>[{r['time']}] Flagged {r['cust']} ({r['prob']:.1f}%)</div>", unsafe_allow_html=True)
         else:
             st.caption("No recent flags.")
+            
+    with bot_c3:
+        st.markdown("**⚠️ Warnings Issued (50-75%)**")
+        warns = [log for log in st.session_state['bot_logs'] if log['action'] == 'WARN']
+        if warns:
+            for w in warns[-3:]:
+                st.markdown(f"<div style='background: rgba(245, 158, 11, 0.1); border-left: 3px solid #F59E0B; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; color: #E5E7EB;'>[{w['time']}] Warned {w['cust']} ({w['prob']:.1f}%)</div>", unsafe_allow_html=True)
+        else:
+            st.caption("No recent warnings.")
 
     st.markdown("---")
     st.markdown("<h4>👨‍💻 Employee Review Queue (Pending Decisions)</h4>", unsafe_allow_html=True)
     
     if st.session_state['review_queue']:
+        if st.button("🤖 Auto-Resolve All Pending (AI Bot)", use_container_width=True, help="Automatically block >65% risk and clear <=65% risk"):
+            for q in st.session_state['review_queue']:
+                if q['prob'] > 65.0:
+                    if q['cust'] not in st.session_state['blocked_accounts']:
+                        st.session_state['blocked_accounts'].append(q['cust'])
+            st.session_state['review_queue'] = []
+            st.toast("✅ Auto-Bot has successfully resolved all pending items based on 65% threshold.")
+            st.rerun()
+            
         for q in reversed(st.session_state['review_queue']):
             st.markdown(f"""
             <div style="background-color: rgba(6, 182, 212, 0.05); padding: 16px; border-left: 5px solid #06B6D4; margin-top: 12px; border-radius: 8px 8px 0px 0px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
@@ -413,7 +422,7 @@ with t3:
             """, unsafe_allow_html=True)
             
             st.markdown(f"<div style='background-color: #1E293B; padding: 8px 16px; border: 1px solid #334155; border-top: none; border-radius: 0px 0px 8px 8px; margin-bottom: 12px;'>", unsafe_allow_html=True)
-            btn_col1, btn_col2, _ = st.columns([1.5, 2, 4])
+            btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
             
             with btn_col1:
                 if st.button(f"🚫 Verify & Block", key=f"rev_blk_{q['txn_id']}"):
@@ -426,6 +435,22 @@ with t3:
                 if st.button("✅ Clear as Safe", key=f"rev_clr_{q['txn_id']}"):
                     st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
                     st.toast(f"✅ Employee cleared transaction as safe.")
+                    st.rerun()
+                    
+            with btn_col3:
+                if st.button("🎫 Raise Ticket", key=f"rev_tkt_{q['txn_id']}", help="Mark as False Positive & alert Engineering Team"):
+                    st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
+                    st.toast(f"🎫 False-Positive Ticket raised for {q['cust']}! ML Team notified.")
+                    st.rerun()
+                    
+            with btn_col4:
+                if st.button("🤖 AI Auto-Resolve", key=f"rev_ai_{q['txn_id']}", help="Let the AI make the final call based on a 65% threshold"):
+                    st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
+                    if q['prob'] > 65.0:
+                        st.session_state['blocked_accounts'].append(q['cust'])
+                        st.toast(f"🤖 AI Decision: Blocked {q['cust']} (Risk > 65%).")
+                    else:
+                        st.toast(f"🤖 AI Decision: Cleared {q['cust']} as safe (Risk <= 65%).")
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
     else:
