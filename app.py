@@ -5,74 +5,39 @@ import plotly.express as px
 import plotly.graph_objects as go
 import time
 from datetime import datetime
+
 from data_generator import generate_initial_data, generate_live_transaction
 from model_trainer import train_fraud_model, predict_fraud
+from ui_components import (
+    get_enterprise_css,
+    icon_svg,
+    card_kpi_html,
+    header_bar_html,
+    plotly_dark_theme,
+    BG_CARD,
+    BG_SURFACE,
+    BORDER_COLOR,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+    TEXT_MUTED,
+    ACCENT_PRIMARY,
+    COLOR_SUCCESS,
+    COLOR_WARNING,
+    COLOR_DANGER
+)
 
-st.set_page_config(page_title="FinEdge Command Center", layout="wide", page_icon="🏦")
+st.set_page_config(
+    page_title="FinEdge | Banking Intelligence Platform",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- Custom Premium CSS ---
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    
-    .stApp { background-color: #0F172A; color: #E5E7EB; }
-    h1, h2, h3, h4, h5, p, span, div, strong, label { font-family: 'Plus Jakarta Sans', sans-serif !important; color: #E5E7EB; }
-    
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    .top-banner { 
-        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
-        color: #06B6D4; padding: 25px 20px; border-radius: 16px; 
-        text-align: center; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); margin-bottom: 30px;
-        border: 1px solid #334155;
-    }
-    
-    .bottom-banner { text-align: center; font-size: 14px; font-weight: 600; color: #9CA3AF; padding: 20px; margin-top: 40px; border-top: 1px solid #334155;}
-    
-    .kpi-card { background: #1E293B; border-radius: 16px; padding: 24px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; margin-bottom: 25px; }
-    .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(6, 182, 212, 0.1); border-color: #06B6D4; }
-    .kpi-icon { font-size: 28px; margin-bottom: 12px; }
-    .kpi-title { color: #9CA3AF; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .kpi-value { color: #F8FAFC; font-size: 32px; font-weight: 800; letter-spacing: -1px; }
-    .kpi-trend { font-size: 12px; font-weight: 700; margin-top: 8px; display: inline-block; padding: 4px 10px; border-radius: 20px; }
-    .trend-neutral { background: #334155; color: #E5E7EB; }
-    .trend-danger { background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-    
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-    .blink-dot { height: 10px; width: 10px; background-color: #EF4444; border-radius: 50%; display: inline-block; margin-right: 8px; animation: pulseGlow 2s infinite; }
-    
-    .feed-card { background: #1E293B; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #334155; border-left-width: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out; transition: all 0.2s; }
-    .feed-card:hover { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4); }
-    .fraud-feed { border-left-color: #EF4444; background-color: rgba(239, 68, 68, 0.08); }
-    .normal-feed { border-left-color: #22C55E; background-color: rgba(34, 197, 94, 0.05); }
-    
-    .sys-card { background: #1E293B; border-radius: 16px; padding: 20px; border: 1px solid #334155; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); transition: all 0.3s;}
-    .sys-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4); }
-    .sys-card h5 { margin-top: 0; color: #06B6D4 !important; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-    .sys-value { font-size: 28px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.5px; margin-top: 10px;}
-    .sys-sub { font-size: 13px; color: #9CA3AF; font-weight: 600;}
-    
-    .stTabs [data-baseweb="tab-list"] { background-color: #1E293B; padding: 8px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); gap: 8px; border: 1px solid #334155; }
-    .stTabs [data-baseweb="tab"] { font-weight: 700; color: #9CA3AF; padding: 12px 20px; border-radius: 12px; font-size: 14px; transition: all 0.2s; border: none !important; }
-    .stTabs [aria-selected="true"] { color: #FFFFFF !important; background: linear-gradient(135deg, #06B6D4, #3B82F6) !important; box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
-    
-    .action-tag { display: inline-block; background-color: #06B6D4; color: #0F172A; padding: 4px 12px; border-radius: 6px; font-weight: 800; font-size: 11px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;}
-    .category-badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; background-color: #334155; color: #E5E7EB; margin-left: 8px; font-weight: 700; border: 1px solid #475569;}
-    
-    .action-btn { background-color: #1E293B; border: 1px solid #475569; color: #E5E7EB; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-block; margin-right: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: all 0.2s;}
-    .action-btn:hover { background-color: #334155; color: #FFFFFF; border-color: #9CA3AF; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
-    .btn-block { color: #EF4444; border-color: rgba(239, 68, 68, 0.5); background-color: rgba(239, 68, 68, 0.1);}
-    .btn-block:hover { background-color: rgba(239, 68, 68, 0.2); border-color: #EF4444; color: #FFFFFF;}
-    </style>
-""", unsafe_allow_html=True)
+# --- Inject Enterprise Dark CSS ---
+st.markdown(get_enterprise_css(), unsafe_allow_html=True)
 
-# --- Initialization ---
+# --- Initialization & Session State ---
 if 'initialized' not in st.session_state or 'tickets' not in st.session_state or 'phone_number' not in st.session_state.get('customers', pd.DataFrame()).columns:
-    with st.spinner("Connecting to Core Banking Mainframe..."):
+    with st.spinner("Connecting to Core Banking Engine..."):
         df_customers, df_products, df_transactions, df_tickets = generate_initial_data()
         model, accuracy = train_fraud_model(df_transactions)
         
@@ -84,7 +49,7 @@ if 'initialized' not in st.session_state or 'tickets' not in st.session_state or
         st.session_state['accuracy'] = accuracy
         st.session_state['live_feed'] = []
         st.session_state['time_series_x'] = list(range(50))
-        st.session_state['time_series_y'] = [0]*50
+        st.session_state['time_series_y'] = [0] * 50
         st.session_state['notices'] = []
         st.session_state['blocked_accounts'] = []
         st.session_state['bot_logs'] = []
@@ -104,244 +69,493 @@ if not live_df.empty:
 else:
     all_txns = df_t.copy()
 
-# --- Sidebar Controls ---
+# --- Sidebar ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2830/2830284.png", width=60)
-    st.markdown("### 🎛️ Command Controls")
-    simulate = st.toggle("📡 Engage Live System", value=False)
-    st.markdown("---")
-    st.markdown(f"**AI Model Acc:** `{st.session_state['accuracy']*100:.1f}%`")
-    st.selectbox("Timeframe", ["Live Feed (Active)", "Last 24 Hrs", "YTD"])
+    # Enterprise Brand Header
+    logo_svg = icon_svg("building", size=22, color=ACCENT_PRIMARY)
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0 16px 0; border-bottom: 1px solid {BORDER_COLOR}; margin-bottom: 16px;">
+        <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 6px; display: flex; align-items: center; justify-content: center;">
+            {logo_svg}
+        </div>
+        <div>
+            <div style="font-size: 16px; font-weight: 700; color: {TEXT_PRIMARY}; letter-spacing: -0.02em;">FinEdge</div>
+            <div style="font-size: 11px; color: {TEXT_MUTED}; font-weight: 500;">Banking Intelligence</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Operational Controls Section
+    st.markdown(f"""
+    <div style="font-size: 11px; font-weight: 600; color: {TEXT_MUTED}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">
+        System Controls
+    </div>
+    """, unsafe_allow_html=True)
+    
+    is_live = st.session_state.get('simulate', False)
+    btn_label = "Stop Telemetry Stream" if is_live else "Engage Live System"
+    
+    st.markdown(f"""
+    <style>
+    div[data-testid="stSidebar"] div[data-testid="stButton"] button {{
+        background: {'rgba(248, 113, 113, 0.15)' if is_live else 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)'} !important;
+        color: {'#F87171' if is_live else '#FFFFFF'} !important;
+        border: 1px solid {'rgba(248, 113, 113, 0.4)' if is_live else '#38BDF8'} !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        padding: 8px 12px !important;
+        width: 100% !important;
+        transition: all 0.2s ease !important;
+    }}
+    div[data-testid="stSidebar"] div[data-testid="stButton"] button:hover {{
+        background: {'rgba(248, 113, 113, 0.25)' if is_live else '#0284C7'} !important;
+        border-color: {'#F87171' if is_live else '#7DD3FC'} !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button(btn_label, use_container_width=True):
+        st.session_state['simulate'] = not is_live
+        st.rerun()
+        
+    simulate = st.session_state.get('simulate', False)
+    
+    status_color = COLOR_SUCCESS if simulate else TEXT_MUTED
+    status_text = "Live Stream Active (Ingesting)" if simulate else "Telemetry Stream Paused"
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: {status_color}; font-weight: 500; margin-top: 6px; margin-bottom: 16px;">
+        <span style="width: 6px; height: 6px; border-radius: 50%; background-color: {status_color}; display: inline-block;"></span>
+        {status_text}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    timeframe = st.selectbox("Telemetry Timeframe", ["Live Feed (Active)", "Last 24 Hours", "Year to Date (YTD)"])
+    
+    st.markdown(f"""<div style="border-top: 1px solid {BORDER_COLOR}; margin: 20px 0 16px 0;"></div>""", unsafe_allow_html=True)
+    
+    # Model Metadata & Validation
+    acc_val = st.session_state['accuracy'] * 100
+    cpu_icon = icon_svg("cpu", size=16, color=ACCENT_PRIMARY)
+    shield_icon = icon_svg("shield", size=16, color=COLOR_SUCCESS)
+    
+    st.markdown(f"""
+    <div style="font-size: 11px; font-weight: 600; color: {TEXT_MUTED}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">
+        Model Governance
+    </div>
+    <div style="background: {BG_CARD}; border: 1px solid {BORDER_COLOR}; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 11px; color: {TEXT_SECONDARY};">Algorithm</span>
+            <span style="font-size: 11px; font-weight: 600; color: {TEXT_PRIMARY};">Random Forest v2.4</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 11px; color: {TEXT_SECONDARY};">Validation Accuracy</span>
+            <span style="font-size: 11px; font-weight: 700; color: {COLOR_SUCCESS};">{acc_val:.1f}% (Test Set)</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 11px; color: {TEXT_SECONDARY};">Features Evaluated</span>
+            <span style="font-size: 11px; font-weight: 600; color: {TEXT_PRIMARY};">5 Vector Inputs</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 11px; color: {TEXT_SECONDARY};">Inference Latency</span>
+            <span style="font-size: 11px; font-weight: 600; color: {ACCENT_PRIMARY};">&lt; 2 ms / txn</span>
+        </div>
+    </div>
+    
+    <div style="font-size: 10px; color: {TEXT_MUTED}; line-height: 1.4;">
+        Note: Model metrics represent offline test-set validation on balanced historical data.
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- Top Banner ---
-st.markdown('<div class="top-banner">🏦 FinEdge Bank – Command Center</div>', unsafe_allow_html=True)
+# --- Top Header ---
+current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+st.markdown(header_bar_html(simulate, current_time_str), unsafe_allow_html=True)
 
-# --- KPIs ---
+# --- KPI Cards Row ---
 avg_balance = df_c['balance'].mean()
 total_advances = df_p['loan_amount'].sum()
 fraud_count = all_txns['is_fraud'].sum()
+active_lockers_count = len(df_c[df_c['locker_type'] != 'None'])
+
+new_flags = len(live_df[live_df['predicted_fraud'] == 1]) if not live_df.empty else 0
+live_flags_str = f"+{new_flags} Live Anomalies" if new_flags > 0 else "Baseline Normal"
+trend_type = "alert" if new_flags > 0 else "neutral"
 
 k1, k2, k3, k4 = st.columns(4)
 
-new_flags = len(live_df[live_df['predicted_fraud']==1]) if not live_df.empty else 0
-live_flags_str = f"+{new_flags} Live Flags" if new_flags > 0 else "System Stable"
-trend_class = "trend-danger" if new_flags > 0 else "trend-neutral"
-
 with k1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-icon">💰</div>
-        <div class="kpi-title">Average Balance</div>
-        <div class="kpi-value">₹{avg_balance:,.0f}</div>
-        <div class="kpi-trend trend-neutral">System Average</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(card_kpi_html(
+        label="Average Account Balance",
+        value=f"₹{avg_balance:,.0f}",
+        icon_name="wallet",
+        subtitle="Across 800 retail accounts",
+        trend_text="Stable Liquidity"
+    ), unsafe_allow_html=True)
+
 with k2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-icon">🏦</div>
-        <div class="kpi-title">Loan Portfolio</div>
-        <div class="kpi-value">₹{total_advances/10000000:.1f} Cr</div>
-        <div class="kpi-trend trend-neutral">Active Book</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(card_kpi_html(
+        label="Active Loan Portfolio",
+        value=f"₹{total_advances/10000000:.2f} Cr",
+        icon_name="landmark",
+        subtitle="Gross credit exposure",
+        trend_text="Total Book Value"
+    ), unsafe_allow_html=True)
+
 with k3:
-    st.markdown(f"""
-    <div class="kpi-card" style="border-left: 5px solid {'#EF4444' if new_flags > 0 else '#E2E8F0'};">
-        <div class="kpi-icon">🚨</div>
-        <div class="kpi-title">Threat Detects</div>
-        <div class="kpi-value">{fraud_count:,}</div>
-        <div class="kpi-trend {trend_class}">{live_flags_str}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(card_kpi_html(
+        label="Detected Fraud Events",
+        value=f"{fraud_count:,}",
+        icon_name="shield-alert",
+        subtitle="Omni-channel flagged vectors",
+        trend_text=live_flags_str,
+        trend_type=trend_type
+    ), unsafe_allow_html=True)
+
 with k4:
+    st.markdown(card_kpi_html(
+        label="Active Safety Lockers",
+        value=f"{active_lockers_count:,}",
+        icon_name="lock",
+        subtitle="Customer vault rentals",
+        trend_text="Fee Generating"
+    ), unsafe_allow_html=True)
+
+# --- Main Navigation Tabs ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Live Telemetry",
+    "Treasury & Liquidity",
+    "Risk & Compliance (AML)",
+    "AI Predictive Intelligence",
+    "Customer Care & CRM"
+])
+
+# ==============================================================================
+# TAB 1: Live Telemetry
+# ==============================================================================
+with tab1:
     st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-icon">🔐</div>
-        <div class="kpi-title">Active Lockers</div>
-        <div class="kpi-value">{len(df_c[df_c['locker_type']!='None']):,}</div>
-        <div class="kpi-trend trend-neutral">Generating Fee</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; display: flex; align-items: center; gap: 8px;">
+            {icon_svg("activity", size=18, color=ACCENT_PRIMARY)}
+            Real-Time Network Ingestion & Telemetry
+        </div>
+        <div style="font-size: 12px; color: {TEXT_MUTED};">
+            Ingestion channels: UPI · ATM · POS · Online Banking
+        </div>
     </div>
     """, unsafe_allow_html=True)
-
-# --- Tabs ---
-t1, t2, t3, t4, t5 = st.tabs(["📡 Live Telemetry Dashboard", "🏦 Treasury", "🚨 Risk & AML", "💡 AI Insights", "💬 Customer Care & CRM"])
-
-# --- TAB 1: Live Telemetry Dashboard ---
-with t1:
-    st.markdown(f"<h4>Dynamic Network Telemetry | System: {'<span class=\"blink-dot\"></span> ACTIVE 🟢' if simulate else 'PAUSED 🔴'}</h4>", unsafe_allow_html=True)
     
-    if len(st.session_state['live_feed']) < 5:
-        st.info("Activate 'Engage Live System' in the sidebar and wait a few seconds to populate live charts.")
+    if len(st.session_state['live_feed']) < 5 and not simulate:
+        st.info("Live telemetry stream is currently paused. Activate 'Engage Live System' in the sidebar to stream real-time transactions.")
     
-    c_live1, c_live2 = st.columns([2, 1])
+    col_chart, col_feed = st.columns([1.8, 1.2])
     
-    with c_live1:
-        st.markdown("**Live Operational Volume (per second)**")
-        fig_live_line = go.Figure(go.Scatter(
-            x=st.session_state['time_series_x'], 
-            y=st.session_state['time_series_y'], 
-            mode='lines', fill='tozeroy', 
-            line=dict(color='#06B6D4', width=3),
-            fillcolor='rgba(6, 182, 212, 0.2)'
-        ))
-        fig_live_line.update_layout(plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', height=250, margin=dict(t=10, b=10, l=10, r=10), xaxis=dict(showticklabels=False))
-        st.plotly_chart(fig_live_line, use_container_width=True)
-
-        c_sub1, c_sub2 = st.columns(2)
-        with c_sub1:
-            st.markdown("**Live Event Categorization**")
-            if not live_df.empty:
-                live_cat = live_df.tail(50)['category'].value_counts().reset_index()
-                fig_live_pie = px.pie(live_cat, names='category', values='count', hole=0.6, color_discrete_sequence=['#3B82F6', '#06B6D4', '#F59E0B', '#EF4444', '#9CA3AF'])
-                fig_live_pie.update_layout(plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', height=250, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
-                fig_live_pie.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#1E293B', width=2)))
-                st.plotly_chart(fig_live_pie, use_container_width=True)
-            else:
-                st.write("Awaiting data...")
-                
-        with c_sub2:
-            st.markdown("**Live Threat Detection**")
-            if not live_df.empty:
-                live_threat = live_df.tail(50)['predicted_fraud'].value_counts().reset_index()
-                live_threat['Status'] = live_threat['predicted_fraud'].map({0: 'Normal', 1: 'Fraud'})
-                fig_live_bar = px.bar(live_threat, x='Status', y='count', color='Status', color_discrete_map={'Normal': '#22C55E', 'Fraud': '#EF4444'})
-                fig_live_bar.update_layout(plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', height=250, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
-                st.plotly_chart(fig_live_bar, use_container_width=True)
-            else:
-                st.write("Awaiting data...")
-        
-    with c_live2:
-        st.markdown("**Live Omni-Channel Stream**")
-        feed_container = st.container(height=550)
-        with feed_container:
-            for txn in reversed(st.session_state['live_feed'][-15:]):
-                amount_str = f"₹{txn['amount']:,}" if txn['amount'] > 0 else "System Action"
-                if txn['predicted_fraud'] == 1:
-                    st.markdown(f"""
-                    <div class="feed-card fraud-feed">
-                        <strong>{txn['customer_id']} | <span style="color:#EF4444;">{amount_str}</span></strong>
-                        <span class="category-badge">{txn['category']}</span><br>
-                        <span style="font-size: 13px; color: #9CA3AF;">📍 {txn['location']}</span> <br>
-                        <span style="font-size: 12px; font-weight: bold; color: #EF4444;">⚠️ Suspicious</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class="feed-card normal-feed">
-                        <strong>{txn['customer_id']} | <span style="color:#22C55E;">{amount_str}</span></strong>
-                        <span class="category-badge">{txn['category']}</span><br>
-                        <span style="font-size: 13px; color: #9CA3AF;">📍 {txn['location']}</span> <br>
-                        <span style="font-size: 12px; font-weight: bold; color: #22C55E;">✅ Normal</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-# --- TAB 2: Treasury & Core Banking ---
-with t2:
-    st.markdown("<h4>Core Financial Health</h4>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1, 1.5])
-    
-    with c1:
+    with col_chart:
+        # Time-series volume
         st.markdown(f"""
-        <div class="sys-card">
-            <h5>Minimum Balance Violations</h5>
-            <div class="sys-value">{df_c['min_bal_violation'].sum():,}</div>
-            <div class="sys-sub">Accounts facing penal charges</div>
-        </div>
-        <div class="sys-card">
-            <h5>Total Interest Earned</h5>
-            <div class="sys-value">₹{df_p['total_interest_earned'].sum()/100000:.2f} L</div>
-            <div class="sys-sub">Customer payouts</div>
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+            Operational Throughput (Transactions / Second)
         </div>
         """, unsafe_allow_html=True)
-        st.info("💡 **Insight:** Gold loans currently contribute the highest proportional interest revenue per capita.")
         
-    with c2:
-        st.markdown("**Locker Facility Distribution**")
-        locker_dist = df_c[df_c['locker_type'] != 'None']['locker_type'].value_counts().reset_index()
-        fig_lck = px.pie(locker_dist, names='locker_type', values='count', hole=0.6, color_discrete_sequence=['#3B82F6', '#06B6D4', '#F59E0B'])
-        fig_lck.update_layout(
-            plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', 
-            margin=dict(t=20, b=40, l=10, r=10), 
-            height=260,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
+        fig_vol = go.Figure(go.Scatter(
+            x=st.session_state['time_series_x'],
+            y=st.session_state['time_series_y'],
+            mode='lines',
+            fill='tozeroy',
+            line=dict(color=ACCENT_PRIMARY, width=2.5),
+            fillcolor='rgba(56, 189, 248, 0.12)'
+        ))
+        fig_vol = plotly_dark_theme(fig_vol, height=220, x_tick=False)
+        fig_vol.update_yaxes(title_text="Txns / Sec", title_font=dict(size=10, color=TEXT_MUTED))
+        st.plotly_chart(fig_vol, use_container_width=True)
+        
+        sub1, sub2 = st.columns(2)
+        with sub1:
+            st.markdown(f"""
+            <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+                Transaction Channel Distribution
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not live_df.empty:
+                cat_counts = live_df.tail(60)['category'].value_counts().reset_index()
+                fig_cat = px.pie(
+                    cat_counts, 
+                    names='category', 
+                    values='count', 
+                    hole=0.6,
+                    color_discrete_sequence=['#38BDF8', '#818CF8', '#34D399', '#FBBF24', '#64748B']
+                )
+                fig_cat = plotly_dark_theme(fig_cat, height=220, show_legend=False)
+                fig_cat.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=BG_CARD, width=2)))
+                st.plotly_chart(fig_cat, use_container_width=True)
+            else:
+                cat_counts = df_t['category'].value_counts().reset_index()
+                fig_cat = px.pie(
+                    cat_counts, 
+                    names='category', 
+                    values='count', 
+                    hole=0.6,
+                    color_discrete_sequence=['#38BDF8', '#818CF8', '#34D399', '#FBBF24', '#64748B']
+                )
+                fig_cat = plotly_dark_theme(fig_cat, height=220, show_legend=False)
+                fig_cat.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=BG_CARD, width=2)))
+                st.plotly_chart(fig_cat, use_container_width=True)
+                
+        with sub2:
+            st.markdown(f"""
+            <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+                Model Anomaly Classification
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not live_df.empty:
+                class_df = live_df.tail(60)['predicted_fraud'].value_counts().reset_index()
+                class_df['Label'] = class_df['predicted_fraud'].map({0: 'Legitimate', 1: 'Flagged Anomaly'})
+                fig_bar = px.bar(
+                    class_df, 
+                    x='Label', 
+                    y='count', 
+                    color='Label', 
+                    color_discrete_map={'Legitimate': COLOR_SUCCESS, 'Flagged Anomaly': COLOR_DANGER}
+                )
+                fig_bar = plotly_dark_theme(fig_bar, height=220, show_legend=False)
+                fig_bar.update_xaxes(title_text="")
+                fig_bar.update_yaxes(title_text="Count")
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.markdown(f"""
+                <div style="background: {BG_CARD}; border: 1px dashed {BORDER_COLOR}; border-radius: 8px; height: 220px; display: flex; align-items: center; justify-content: center; color: {TEXT_MUTED}; font-size: 12px;">
+                    Awaiting live streaming telemetry data...
+                </div>
+                """, unsafe_allow_html=True)
+
+    with col_feed:
+        st.markdown(f"""
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>Live Omni-Channel Stream</span>
+            <span style="color: {TEXT_MUTED}; font-size: 11px;">Latest 15 Events</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        feed_box = st.container(height=510)
+        with feed_box:
+            recent_items = st.session_state['live_feed'][-15:]
+            if recent_items:
+                for txn in reversed(recent_items):
+                    is_anomaly = txn.get('predicted_fraud', 0) == 1
+                    item_class = "txn-item-fraud" if is_anomaly else "txn-item-normal"
+                    badge_class = "badge-fraud" if is_anomaly else "badge-normal"
+                    amt_class = "txn-amount-fraud" if is_anomaly else "txn-amount-normal"
+                    status_text = "Anomaly Detected" if is_anomaly else "Authorized"
+                    
+                    amt_val = f"₹{txn['amount']:,.2f}" if txn['amount'] > 0 else "Non-Monetary"
+                    cust_id = txn.get('customer_id', 'N/A')
+                    loc = txn.get('location', 'Unknown Terminal')
+                    cat = txn.get('category', 'Transaction')
+                    mode = txn.get('mode', 'Channel')
+                    
+                    st.markdown(f"""
+                    <div class="txn-item {item_class}">
+                        <div class="txn-row-top">
+                            <div>
+                                <span class="txn-id">{cust_id}</span>
+                                <span class="txn-badge badge-channel" style="margin-left: 6px;">{mode}</span>
+                            </div>
+                            <span class="txn-amount {amt_class}">{amt_val}</span>
+                        </div>
+                        <div class="txn-row-bottom">
+                            <span>{loc}</span>
+                            <span class="txn-badge {badge_class}">{status_text}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="padding: 24px 12px; text-align: center; color: {TEXT_MUTED}; font-size: 12px;">
+                    {icon_svg("activity", size=24, color=TEXT_MUTED)}<br><br>
+                    No streaming transactions captured yet.<br>
+                    Toggle 'Engage Live System' in the sidebar to initiate real-time telemetry.
+                </div>
+                """, unsafe_allow_html=True)
+
+# ==============================================================================
+# TAB 2: Treasury & Liquidity
+# ==============================================================================
+with tab2:
+    st.markdown(f"""
+    <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+        {icon_svg("landmark", size=18, color=ACCENT_PRIMARY)}
+        Core Banking Operations & Liquidity Management
+    </div>
+    """, unsafe_allow_html=True)
+    
+    tc1, tc2, tc3 = st.columns([1, 1.2, 1.4])
+    
+    with tc1:
+        min_bal_count = df_c['min_bal_violation'].sum()
+        total_payout = df_p['total_interest_earned'].sum()
+        
+        st.markdown(f"""
+        <div class="section-card" style="margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: 600; color: {TEXT_MUTED}; text-transform: uppercase;">Minimum Balance Violations</div>
+            <div style="font-size: 24px; font-weight: 700; color: {COLOR_WARNING}; margin: 6px 0;">{min_bal_count:,} Accounts</div>
+            <div style="font-size: 11px; color: {TEXT_SECONDARY};">Operating below standard ₹1,000 threshold</div>
+        </div>
+        
+        <div class="section-card">
+            <div style="font-size: 11px; font-weight: 600; color: {TEXT_MUTED}; text-transform: uppercase;">Customer Interest Payouts</div>
+            <div style="font-size: 24px; font-weight: 700; color: {COLOR_SUCCESS}; margin: 6px 0;">₹{total_payout/100000:.2f} Lakh</div>
+            <div style="font-size: 11px; color: {TEXT_SECONDARY};">Accrued FD (7%) & RD (5%) disbursements</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid {ACCENT_PRIMARY}; padding: 10px 12px; border-radius: 4px; font-size: 11px; color: {TEXT_SECONDARY}; line-height: 1.5; margin-top: 10px;">
+            <strong style="color: {TEXT_PRIMARY};">Liquidity Metric:</strong> Gold loans currently generate the highest proportional interest yield per account in the institutional loan book.
+        </div>
+        """, unsafe_allow_html=True)
+
+    with tc2:
+        st.markdown(f"""
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+            Locker Facility Utilization
+        </div>
+        """, unsafe_allow_html=True)
+        
+        locker_df = df_c[df_c['locker_type'] != 'None']['locker_type'].value_counts().reset_index()
+        fig_lck = px.pie(
+            locker_df, 
+            names='locker_type', 
+            values='count', 
+            hole=0.6,
+            color_discrete_sequence=['#38BDF8', '#818CF8', '#34D399']
         )
-        fig_lck.update_traces(marker=dict(line=dict(color='#1E293B', width=3)), textinfo='percent')
+        fig_lck = plotly_dark_theme(fig_lck, height=270, show_legend=True)
+        fig_lck.update_traces(marker=dict(line=dict(color=BG_CARD, width=2)), textinfo='percent')
+        fig_lck.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5))
         st.plotly_chart(fig_lck, use_container_width=True)
 
-    with c3:
-        st.markdown("**Deposit Distribution (FD/RD vs Savings/Current)**")
-        prod_dist = pd.DataFrame({
-            'Category': ['Term Deposits (FD)', 'Recurring (RD)', 'Liquid (Sav/Cur)'],
-            'Volume': [df_p['fd_amount'].sum(), df_p['rd_amount'].sum(), df_c['balance'].sum()]
-        })
-        fig_prod = px.bar(prod_dist, x='Volume', y='Category', orientation='h', color='Category', color_discrete_sequence=['#06B6D4', '#F59E0B', '#3B82F6'])
-        fig_prod.update_layout(plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', showlegend=False, margin=dict(t=0, b=0))
-        st.plotly_chart(fig_prod, use_container_width=True)
-
-# --- TAB 3: Risk & Compliance (AML) ---
-with t3:
-    st.markdown("<h4>Live Threat Intelligence Engine</h4>", unsafe_allow_html=True)
-    
-    if len(st.session_state['live_feed']) < 5:
-        st.info("Activate 'Engage Live System' to stream real-time threat telemetry.")
-        
-    c_risk1, c_risk2 = st.columns([1.5, 1])
-    
-    with c_risk1:
-        c_r_sub1, c_r_sub2 = st.columns(2)
-        with c_r_sub1:
-            st.markdown("**Live Threat Vector Distribution**")
-            if not live_df.empty:
-                live_fraud = live_df[live_df['predicted_fraud'] == 1]
-                if not live_fraud.empty:
-                    threat_counts = live_fraud['pattern_alert'].value_counts().reset_index()
-                    fig_threat_pie = px.pie(threat_counts, names='pattern_alert', values='count', hole=0.5,
-                                           color_discrete_sequence=['#EF4444', '#F59E0B', '#1E3A8A', '#14B8A6'])
-                    fig_threat_pie.update_layout(plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', height=280, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
-                    fig_threat_pie.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#1E293B', width=2)))
-                    st.plotly_chart(fig_threat_pie, use_container_width=True)
-                else:
-                    st.success("No active threats in current window ✅")
-            else:
-                st.write("Awaiting data...")
-                
-        with c_r_sub2:
-            st.markdown("**Live Risk Probability Tracker (%)**")
-            if not live_df.empty:
-                live_prob = live_df.tail(50)['fraud_prob'] * 100
-                fig_prob = go.Figure(go.Scatter(y=live_prob, mode='lines', line=dict(color='#EF4444', width=3), fill='tozeroy', fillcolor='rgba(239, 68, 68, 0.2)'))
-                fig_prob.update_layout(plot_bgcolor='#1E293B', paper_bgcolor='#1E293B', font_color='#E5E7EB', height=280, margin=dict(t=10, b=10, l=10, r=10), yaxis=dict(range=[0, 100]), xaxis=dict(showticklabels=False))
-                st.plotly_chart(fig_prob, use_container_width=True)
-            else:
-                st.write("Awaiting data...")
-
-    with c_risk2:
+    with tc3:
         st.markdown(f"""
-        <div class="sys-card" style="border-left: 4px solid #EF4444;">
-            <h5>AML Watchlist Alert</h5>
-            <div class="sys-value">{len(df_c[df_c['risk_category']=='High']):,}</div>
-            <div class="sys-sub">High-Risk Customers Identified</div>
-        </div>
-        <div class="sys-card" style="border-left: 4px solid #F59E0B;">
-            <h5>Cumulative Suspicious Operations</h5>
-            <div class="sys-value">{len(all_txns[all_txns['pattern_alert']!='None']):,}</div>
-            <div class="sys-sub">Total Lifecycle Pattern Matches</div>
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+            Deposit Structure (Term vs. Liquid Balances)
         </div>
         """, unsafe_allow_html=True)
         
-    st.markdown("---")
-    st.markdown("<h4>🤖 Autonomous Risk Bot (Live Agent Action Log)</h4>", unsafe_allow_html=True)
-    st.info("The AI Agent actively monitors incoming telemetry and executes autonomous actions based on probability thresholds (50-75% Warn | 75-85% Employee Review | >85% Auto-Block).")
+        prod_dist = pd.DataFrame({
+            'Category': ['Fixed Deposits (FD)', 'Recurring Deposits (RD)', 'Liquid Balances (Savings/Current)'],
+            'Volume': [df_p['fd_amount'].sum(), df_p['rd_amount'].sum(), df_c['balance'].sum()]
+        })
+        fig_prod = px.bar(
+            prod_dist, 
+            x='Volume', 
+            y='Category', 
+            orientation='h', 
+            color='Category', 
+            color_discrete_sequence=['#38BDF8', '#FBBF24', '#34D399']
+        )
+        fig_prod = plotly_dark_theme(fig_prod, height=270, show_legend=False)
+        fig_prod.update_xaxes(title_text="Total Volume (₹)")
+        fig_prod.update_yaxes(title_text="")
+        st.plotly_chart(fig_prod, use_container_width=True)
+
+# ==============================================================================
+# TAB 3: Risk & Compliance (AML)
+# ==============================================================================
+with tab3:
+    st.markdown(f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; display: flex; align-items: center; gap: 8px;">
+            {icon_svg("shield-alert", size=18, color=COLOR_DANGER)}
+            Anti-Money Laundering (AML) & Autonomous Threat Mitigation
+        </div>
+        <div style="font-size: 12px; color: {TEXT_MUTED};">
+            3-Tier Escalation: Warn (50–75%) · Review (75–85%) · Auto-Block (&gt;85%)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    bot_c1, bot_c2, bot_c3 = st.columns(3)
+    rc1, rc2 = st.columns([1.6, 1.0])
     
+    with rc1:
+        r_sub1, r_sub2 = st.columns(2)
+        with r_sub1:
+            st.markdown(f"""
+            <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+                Identified Fraud Pattern Vectors
+            </div>
+            """, unsafe_allow_html=True)
+            
+            fraud_subset = all_txns[all_txns['pattern_alert'] != 'None']
+            if not fraud_subset.empty:
+                pattern_counts = fraud_subset['pattern_alert'].value_counts().reset_index()
+                fig_patterns = px.pie(
+                    pattern_counts,
+                    names='pattern_alert',
+                    values='count',
+                    hole=0.55,
+                    color_discrete_sequence=['#F87171', '#FBBF24', '#38BDF8', '#818CF8']
+                )
+                fig_patterns = plotly_dark_theme(fig_patterns, height=240, show_legend=False)
+                fig_patterns.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=BG_CARD, width=2)))
+                st.plotly_chart(fig_patterns, use_container_width=True)
+            else:
+                st.markdown(f"<div style='color: {TEXT_MUTED}; font-size: 12px;'>No anomaly vectors logged.</div>", unsafe_allow_html=True)
+                
+        with r_sub2:
+            st.markdown(f"""
+            <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+                Live Model Risk Probability (%)
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not live_df.empty:
+                probs = live_df.tail(40)['fraud_prob'] * 100
+                fig_prob = go.Figure(go.Scatter(
+                    y=probs, 
+                    mode='lines', 
+                    line=dict(color=COLOR_DANGER, width=2.5), 
+                    fill='tozeroy', 
+                    fillcolor='rgba(248, 113, 113, 0.12)'
+                ))
+                fig_prob = plotly_dark_theme(fig_prob, height=240, x_tick=False)
+                fig_prob.update_yaxes(range=[0, 100], title_text="Risk %", title_font=dict(size=10, color=TEXT_MUTED))
+                st.plotly_chart(fig_prob, use_container_width=True)
+            else:
+                st.markdown(f"""
+                <div style="background: {BG_CARD}; border: 1px dashed {BORDER_COLOR}; border-radius: 8px; height: 240px; display: flex; align-items: center; justify-content: center; color: {TEXT_MUTED}; font-size: 12px;">
+                    Awaiting live probability stream...
+                </div>
+                """, unsafe_allow_html=True)
+
+    with rc2:
+        high_risk_count = len(df_c[df_c['risk_category'] == 'High'])
+        pattern_matches_count = len(all_txns[all_txns['pattern_alert'] != 'None'])
+        
+        st.markdown(f"""
+        <div class="section-card" style="border-left: 4px solid {COLOR_DANGER}; margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: 600; color: {TEXT_MUTED}; text-transform: uppercase;">AML Watchlist Alert</div>
+            <div style="font-size: 24px; font-weight: 700; color: {COLOR_DANGER}; margin: 6px 0;">{high_risk_count:,} Accounts</div>
+            <div style="font-size: 11px; color: {TEXT_SECONDARY};">Customers categorized in High-Risk AML tier</div>
+        </div>
+        
+        <div class="section-card" style="border-left: 4px solid {COLOR_WARNING};">
+            <div style="font-size: 11px; font-weight: 600; color: {TEXT_MUTED}; text-transform: uppercase;">Lifecycle Pattern Matches</div>
+            <div style="font-size: 24px; font-weight: 700; color: {COLOR_WARNING}; margin: 6px 0;">{pattern_matches_count:,} Incidents</div>
+            <div style="font-size: 11px; color: {TEXT_SECONDARY};">Total flagged anomalies in historical corpus</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown(f"""<div style="border-top: 1px solid {BORDER_COLOR}; margin: 18px 0;"></div>""", unsafe_allow_html=True)
+    
+    # Process Live Feed for Autonomous Bot
     if 'bot_logs' not in st.session_state:
         st.session_state['bot_logs'] = []
     if 'review_queue' not in st.session_state:
         st.session_state['review_queue'] = []
-    
-    # Process Live Feed for Autonomous Bot
+        
     if not live_df.empty:
         bot_alerts = live_df[live_df['pattern_alert'] != 'None'].sort_values('timestamp', ascending=False).head(20)
         for _, row in bot_alerts.iterrows():
@@ -366,223 +580,380 @@ with t3:
                     st.session_state['bot_logs'].append({'time': t_str, 'action': 'WARN', 'cust': cust, 'prob': prob})
                     
                 st.session_state[f"bot_processed_{txn_id}"] = True
-                
+
+    # 3-Column Bot Action Log
+    st.markdown(f"""
+    <div style="font-size: 13px; font-weight: 600; color: {TEXT_PRIMARY}; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        {icon_svg("cpu", size=16, color=ACCENT_PRIMARY)}
+        Autonomous Containment Bot (Live Execution Stream)
+    </div>
+    """, unsafe_allow_html=True)
+    
+    bot_c1, bot_c2, bot_c3 = st.columns(3)
+    
     with bot_c1:
-        st.markdown("**🛑 Auto-Blocked (>85%)**")
+        st.markdown(f"""
+        <div style="font-size: 11px; font-weight: 600; color: {COLOR_DANGER}; text-transform: uppercase; margin-bottom: 6px;">
+            Auto-Blocked (&gt; 85% Risk Score)
+        </div>
+        """, unsafe_allow_html=True)
         blocks = [log for log in st.session_state['bot_logs'] if log['action'] == 'BLOCK']
         if blocks:
             for b in blocks[-3:]:
-                st.markdown(f"<div style='background: rgba(239, 68, 68, 0.1); border-left: 3px solid #EF4444; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; color: #E5E7EB;'>[{b['time']}] Blocked {b['cust']} ({b['prob']:.1f}%)</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="background: rgba(248, 113, 113, 0.08); border-left: 3px solid {COLOR_DANGER}; padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: {TEXT_PRIMARY};">
+                    <span style="color: {TEXT_MUTED};">[{b['time']}]</span> Blocked <strong>{b['cust']}</strong> (Score: {b['prob']:.1f}%)
+                </div>
+                """, unsafe_allow_html=True)
         else:
-            st.caption("No recent blocks.")
+            st.caption("No critical threats auto-blocked in current session.")
             
     with bot_c2:
-        st.markdown("**👁️ Employee Review Queue (75-85%)**")
+        st.markdown(f"""
+        <div style="font-size: 11px; font-weight: 600; color: {ACCENT_PRIMARY}; text-transform: uppercase; margin-bottom: 6px;">
+            Escalated to Review Queue (75–85%)
+        </div>
+        """, unsafe_allow_html=True)
         reviews = [log for log in st.session_state['bot_logs'] if log['action'] == 'REVIEW']
         if reviews:
             for r in reviews[-3:]:
-                st.markdown(f"<div style='background: rgba(6, 182, 212, 0.1); border-left: 3px solid #06B6D4; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; color: #E5E7EB;'>[{r['time']}] Flagged {r['cust']} ({r['prob']:.1f}%)</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid {ACCENT_PRIMARY}; padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: {TEXT_PRIMARY};">
+                    <span style="color: {TEXT_MUTED};">[{r['time']}]</span> Escalated <strong>{r['cust']}</strong> (Score: {r['prob']:.1f}%)
+                </div>
+                """, unsafe_allow_html=True)
         else:
-            st.caption("No recent flags.")
+            st.caption("No pending cases escalated.")
             
     with bot_c3:
-        st.markdown("**⚠️ Warnings Issued (50-75%)**")
+        st.markdown(f"""
+        <div style="font-size: 11px; font-weight: 600; color: {COLOR_WARNING}; text-transform: uppercase; margin-bottom: 6px;">
+            System Warnings Issued (50–75%)
+        </div>
+        """, unsafe_allow_html=True)
         warns = [log for log in st.session_state['bot_logs'] if log['action'] == 'WARN']
         if warns:
             for w in warns[-3:]:
-                st.markdown(f"<div style='background: rgba(245, 158, 11, 0.1); border-left: 3px solid #F59E0B; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; color: #E5E7EB;'>[{w['time']}] Warned {w['cust']} ({w['prob']:.1f}%)</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="background: rgba(251, 191, 36, 0.08); border-left: 3px solid {COLOR_WARNING}; padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: {TEXT_PRIMARY};">
+                    <span style="color: {TEXT_MUTED};">[{w['time']}]</span> Logged warning for <strong>{w['cust']}</strong> ({w['prob']:.1f}%)
+                </div>
+                """, unsafe_allow_html=True)
         else:
-            st.caption("No recent warnings.")
+            st.caption("No warnings recorded.")
 
-    st.markdown("---")
-    st.markdown("<h4>👨‍💻 Employee Review Queue (Pending Decisions)</h4>", unsafe_allow_html=True)
+    st.markdown(f"""<div style="border-top: 1px solid {BORDER_COLOR}; margin: 20px 0;"></div>""", unsafe_allow_html=True)
+    
+    # Employee Review Queue
+    st.markdown(f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: {TEXT_PRIMARY}; display: flex; align-items: center; gap: 8px;">
+            {icon_svg("users", size=16, color=ACCENT_PRIMARY)}
+            Employee Review Queue (Human-in-the-Loop Decisions)
+        </div>
+        <div style="font-size: 11px; color: {TEXT_MUTED};">
+            Pending Items: {len(st.session_state['review_queue'])}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     if st.session_state['review_queue']:
-        if st.button("🤖 Auto-Resolve All Pending (AI Bot)", use_container_width=True, help="Automatically block >65% risk and clear <=65% risk"):
+        if st.button("Auto-Resolve All Pending (AI Secondary 65% Threshold)", use_container_width=True):
             for q in st.session_state['review_queue']:
                 if q['prob'] > 65.0:
                     if q['cust'] not in st.session_state['blocked_accounts']:
                         st.session_state['blocked_accounts'].append(q['cust'])
             st.session_state['review_queue'] = []
-            st.toast("✅ Auto-Bot has successfully resolved all pending items based on 65% threshold.")
+            st.toast("Auto-Bot resolved pending items using secondary 65% threshold.")
             st.rerun()
             
         for q in reversed(st.session_state['review_queue']):
             st.markdown(f"""
-            <div style="background-color: rgba(6, 182, 212, 0.05); padding: 16px; border-left: 5px solid #06B6D4; margin-top: 12px; border-radius: 8px 8px 0px 0px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <strong style="color: #06B6D4; font-size: 15px;">🤖 BOT FLAGGED: {q['alert']}</strong>
-                    <span style="background: #06B6D4; color: #0F172A; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;">RISK SCORE: {q['prob']:.1f}% (REVIEW REQUIRED)</span>
+            <div class="ticket-card">
+                <div class="ticket-header">
+                    <span class="ticket-title">
+                        {icon_svg("shield-alert", size=15, color=ACCENT_PRIMARY)}
+                        {q['alert']}
+                    </span>
+                    <span class="ticket-score-badge">RISK: {q['prob']:.1f}%</span>
                 </div>
-                <div style="font-size: 13px; color: #9CA3AF; line-height: 1.5;">
-                    <strong>Target Entity:</strong> {q['cust']} | <strong>Operation:</strong> {q['category']} <br>
-                    <strong>AI Diagnostics:</strong> Suspicious {q['mode']} execution. Score too low for auto-block. Manual verification required.
+                <div class="ticket-body">
+                    <strong>Entity:</strong> {q['cust']} &nbsp;|&nbsp; 
+                    <strong>Operation:</strong> {q['category']} &nbsp;|&nbsp; 
+                    <strong>Channel:</strong> {q['mode']}<br>
+                    <span style="color: {TEXT_MUTED};">AI Assessment: Ambiguous probability vector requires compliance analyst verification before containment.</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            st.markdown(f"<div style='background-color: #1E293B; padding: 8px 16px; border: 1px solid #334155; border-top: none; border-radius: 0px 0px 8px 8px; margin-bottom: 12px;'>", unsafe_allow_html=True)
-            btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
-            
-            with btn_col1:
-                if st.button(f"🚫 Verify & Block", key=f"rev_blk_{q['txn_id']}"):
+            b1, b2, b3, b4 = st.columns(4)
+            with b1:
+                if st.button("Verify & Block", key=f"btn_blk_{q['txn_id']}", use_container_width=True):
                     st.session_state['blocked_accounts'].append(q['cust'])
                     st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
-                    st.toast(f"✅ Employee confirmed threat. {q['cust']} Blocked.")
+                    st.toast(f"Confirmed threat: {q['cust']} account locked.")
                     st.rerun()
-            
-            with btn_col2:
-                if st.button("✅ Clear as Safe", key=f"rev_clr_{q['txn_id']}"):
+            with b2:
+                if st.button("Clear as Safe", key=f"btn_clr_{q['txn_id']}", use_container_width=True):
                     st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
-                    st.toast(f"✅ Employee cleared transaction as safe.")
+                    st.toast(f"Transaction authorized. {q['cust']} cleared.")
                     st.rerun()
-                    
-            with btn_col3:
-                if st.button("🎫 Raise Ticket", key=f"rev_tkt_{q['txn_id']}", help="Mark as False Positive & alert Engineering Team"):
+            with b3:
+                if st.button("Raise Ticket", key=f"btn_tkt_{q['txn_id']}", use_container_width=True, help="Flag as false-positive for model retraining"):
                     st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
-                    st.toast(f"🎫 False-Positive Ticket raised for {q['cust']}! ML Team notified.")
+                    st.toast(f"Dispute logged for {q['cust']}. Forwarded to ML Engineering.")
                     st.rerun()
-                    
-            with btn_col4:
-                if st.button("🤖 AI Auto-Resolve", key=f"rev_ai_{q['txn_id']}", help="Let the AI make the final call based on a 65% threshold"):
+            with b4:
+                if st.button("AI Auto-Resolve", key=f"btn_ai_{q['txn_id']}", use_container_width=True):
                     st.session_state['review_queue'] = [x for x in st.session_state['review_queue'] if x['txn_id'] != q['txn_id']]
                     if q['prob'] > 65.0:
                         st.session_state['blocked_accounts'].append(q['cust'])
-                        st.toast(f"🤖 AI Decision: Blocked {q['cust']} (Risk > 65%).")
+                        st.toast(f"AI Decision: Locked {q['cust']} (Score > 65%).")
                     else:
-                        st.toast(f"🤖 AI Decision: Cleared {q['cust']} as safe (Risk <= 65%).")
+                        st.toast(f"AI Decision: Approved {q['cust']} (Score <= 65%).")
                     st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.success("🎉 Employee Review Queue is currently empty. All flagged items processed.")
+        st.markdown(f"""
+        <div style="background: {BG_CARD}; border: 1px solid {BORDER_COLOR}; border-radius: 8px; padding: 20px; text-align: center; color: {COLOR_SUCCESS}; font-size: 13px;">
+            {icon_svg("check-circle", size=20, color=COLOR_SUCCESS)}<br><br>
+            All flagged cases have been resolved. The Employee Review Queue is clear.
+        </div>
+        """, unsafe_allow_html=True)
 
-# --- TAB 4: AI Insights Panel ---
-with t4:
-    st.markdown("<h4>Prescriptive Recommendations</h4>", unsafe_allow_html=True)
+# ==============================================================================
+# TAB 4: AI Predictive Intelligence
+# ==============================================================================
+with tab4:
     st.markdown(f"""
-        <div style="background: #1E293B; border: 1px solid #334155; color: #E5E7EB; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-            <div class="action-tag">FRAUD RISK RECOMMENDATION</div>
-            <h3 style="color: #F8FAFC;">High probability of coordinated attack in Online Channel</h3>
-            <p style="color: #9CA3AF; font-size: 15px;">Model detects multiple high-value transactions originating from mismatched locations targeting Online portals.<br>
-            <strong>System Action:</strong> Step-up authentication required for transfers > ₹2,00,000.</p>
-        </div>
-        <div style="background: #0F172A; border: 1px solid #334155; color: #E5E7EB; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-            <div class="action-tag" style="background-color: #F59E0B; color: #0F172A;">BUSINESS SUGGESTION</div>
-            <h3 style="color: #F8FAFC;">Locker Capacity Optimization</h3>
-            <p style="color: #E5E7EB; font-size: 15px;">Medium lockers are generating steady fee income but 40% of 'High Balance' customers do not own a locker.<br>
-            <strong>System Action:</strong> Launch automated email campaign offering 50% off first-year Medium Locker rentals to High Net-Worth Individuals.</p>
-        </div>
+    <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+        {icon_svg("brain", size=18, color=ACCENT_PRIMARY)}
+        Prescriptive Security Intelligence & Model Attribution
+    </div>
     """, unsafe_allow_html=True)
-
-# --- TAB 5: Customer Care & CRM ---
-with t5:
-    st.markdown("<h4>Customer Relationship & Notice Management</h4>", unsafe_allow_html=True)
     
-    c_crm1, c_crm2 = st.columns([1, 1])
-    with c_crm1:
-        st.markdown("**Broadcast Notice to Customers**")
+    col_ai1, col_ai2 = st.columns([1.2, 1.0])
+    
+    with col_ai1:
+        st.markdown(f"""
+        <div class="section-card" style="border-left: 4px solid {COLOR_DANGER}; margin-bottom: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: {COLOR_DANGER}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                Critical Cyber Threat Advisory
+            </div>
+            <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; margin-bottom: 6px;">
+                Coordinated Transfer Anomaly Detected in Online Channel
+            </div>
+            <div style="font-size: 12px; color: {TEXT_SECONDARY}; line-height: 1.5; margin-bottom: 10px;">
+                Inference telemetry reveals clustered high-value debit operations originating from non-primary geographic locations targeting net banking rails.
+            </div>
+            <div style="background: {BG_SURFACE}; padding: 8px 12px; border-radius: 6px; font-size: 11px; color: {TEXT_PRIMARY}; border: 1px solid {BORDER_COLOR};">
+                <strong>Prescribed Action:</strong> Enforce mandatory step-up authentication (hardware OTP / biometric token) for transfers exceeding ₹2,00,000.
+            </div>
+        </div>
+        
+        <div class="section-card" style="border-left: 4px solid {ACCENT_PRIMARY};">
+            <div style="font-size: 11px; font-weight: 700; color: {ACCENT_PRIMARY}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                Commercial Yield Optimization
+            </div>
+            <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; margin-bottom: 6px;">
+                Safety Locker Capacity Optimization
+            </div>
+            <div style="font-size: 12px; color: {TEXT_SECONDARY}; line-height: 1.5; margin-bottom: 10px;">
+                Analytics indicate steady rental fee income from medium units, while 40% of institutional High-Balance accounts maintain unallocated vault capacity.
+            </div>
+            <div style="background: {BG_SURFACE}; padding: 8px 12px; border-radius: 6px; font-size: 11px; color: {TEXT_PRIMARY}; border: 1px solid {BORDER_COLOR};">
+                <strong>Prescribed Action:</strong> Initiate targeted communication campaign offering introductory 50% discount on first-year medium locker leases for High Net-Worth retail segments.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_ai2:
+        st.markdown(f"""
+        <div class="section-card">
+            <div class="section-header">
+                <span class="section-title">
+                    {icon_svg("sliders", size=16, color=ACCENT_PRIMARY)}
+                    Model Feature Attribution
+                </span>
+            </div>
+            <div style="font-size: 12px; color: {TEXT_SECONDARY}; margin-bottom: 12px; line-height: 1.4;">
+                Relative Gini feature importances calculated by the Random Forest classifier:
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Calculate feature importances from actual model
+        feature_names = ['amount', 'hour', 'location_change', 'balance_ratio', 'txn_frequency']
+        feature_labels = {
+            'balance_ratio': 'Amount-to-Balance Ratio',
+            'location_change': 'Geographic Location Delta',
+            'amount': 'Transaction Value (₹)',
+            'txn_frequency': '5-Minute Velocity Spike',
+            'hour': 'Time-of-Day Anomaly (Hour)'
+        }
+        
+        try:
+            importances = model.feature_importances_
+            feat_df = pd.DataFrame({
+                'Feature': [feature_labels.get(f, f) for f in feature_names],
+                'Importance': importances
+            }).sort_values('Importance', ascending=True)
+            
+            fig_feat = px.bar(
+                feat_df,
+                x='Importance',
+                y='Feature',
+                orientation='h',
+                color='Importance',
+                color_continuous_scale=['#0369A1', '#38BDF8']
+            )
+            fig_feat = plotly_dark_theme(fig_feat, height=220, show_legend=False)
+            fig_feat.update_layout(coloraxis_showscale=False, margin=dict(t=10, b=10, l=10, r=10))
+            fig_feat.update_xaxes(title_text="Relative Weight")
+            fig_feat.update_yaxes(title_text="")
+            st.plotly_chart(fig_feat, use_container_width=True)
+        except Exception:
+            st.caption("Feature importance calculation unavailable.")
+            
+        st.markdown("""</div>""", unsafe_allow_html=True)
+
+# ==============================================================================
+# TAB 5: Customer Care & CRM
+# ==============================================================================
+with tab5:
+    st.markdown(f"""
+    <div style="font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY}; display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+        {icon_svg("message-square", size=18, color=ACCENT_PRIMARY)}
+        Omni-Channel Customer Broadcast & Dispute Resolution
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_crm1, col_crm2 = st.columns([1.1, 1.0])
+    
+    with col_crm1:
+        st.markdown(f"""
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+            Broadcast Emergency Advisory
+        </div>
+        """, unsafe_allow_html=True)
+        
         with st.form("notice_form", clear_on_submit=True):
-            notice_title = st.text_input("Notice Title", placeholder="e.g. Scheduled UPI Maintenance")
-            notice_type = st.selectbox("Category", ["Maintenance", "Fraud Alert", "System Downtime", "Promotional"])
-            notice_msg = st.text_area("Message Body", placeholder="Dear Customer,\nUPI services will undergo scheduled maintenance...", height=180)
-            notice_urgency = st.selectbox("Urgency", ["High", "Medium", "Low"])
+            notice_title = st.text_input("Advisory Heading", placeholder="e.g. Scheduled Core Banking Maintenance Window")
+            notice_type = st.selectbox("Category", ["System Maintenance", "Security Advisory", "Service Downtime", "Compliance Notice"])
+            notice_msg = st.text_area("Advisory Narrative", placeholder="Dear Customer,\nPlease be advised that UPI gateway services will undergo scheduled maintenance...", height=140)
+            notice_urgency = st.selectbox("Urgency Level", ["Critical (Immediate Push)", "Elevated", "Informational"])
             
-            p_title = notice_title if notice_title else "Notice Title Preview"
-            p_msg = notice_msg if notice_msg else "Your broadcast message will appear here..."
+            p_title = notice_title if notice_title else "Advisory Title Preview"
+            p_msg = notice_msg if notice_msg else "The formatted broadcast narrative will appear here for customer endpoints..."
             
-            st.markdown("""
-            <div style="background-color: #1E293B; border: 1px dashed #475569; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <span style="font-size: 11px; color: #9CA3AF; font-weight: bold; text-transform: uppercase;">📢 Customer Device Preview</span><br>
-                <div style="margin-top: 10px; font-family: sans-serif; color: #F8FAFC;">
-                    <strong>[FinEdge]</strong> <span style="font-weight: bold; color: #06B6D4;">""" + p_title + """</span><br>
-                    <span style="font-size: 13px; color: #9CA3AF; white-space: pre-wrap;">""" + p_msg + """</span>
+            st.markdown(f"""
+            <div style="background-color: {BG_CARD}; border: 1px dashed {BORDER_COLOR}; padding: 12px 14px; border-radius: 6px; margin: 12px 0;">
+                <div style="font-size: 10px; color: {TEXT_MUTED}; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">
+                    Simulated Customer Endpoint Preview
                 </div>
+                <div style="font-size: 12px; font-weight: 700; color: {ACCENT_PRIMARY}; margin-bottom: 4px;">
+                    [FinEdge Official] {p_title}
+                </div>
+                <div style="font-size: 11px; color: {TEXT_SECONDARY}; line-height: 1.4; white-space: pre-wrap;">{p_msg}</div>
             </div>
             """, unsafe_allow_html=True)
             
-            submitted = st.form_submit_button("Execute Broadcast")
-            
+            submitted = st.form_submit_button("Publish Broadcast", use_container_width=True)
             if submitted and notice_title:
                 st.session_state['notices'].append({
                     "id": f"NTC_{datetime.now().timestamp()}",
-                    "title": notice_title, 
-                    "msg": notice_msg, 
+                    "title": notice_title,
+                    "msg": notice_msg,
                     "urgency": notice_urgency,
                     "type": notice_type,
                     "time": datetime.now().strftime("%H:%M:%S")
                 })
-                st.success(f"✅ Executed {notice_type} broadcast to {len(df_c):,} verified devices.")
-                
+                st.toast(f"Broadcast published to {len(df_c):,} verified accounts.")
+                st.rerun()
+
+        # Active Broadcasts Registry
         if st.session_state['notices']:
-            h_col1, h_col2 = st.columns([3, 2])
-            with h_col1:
-                st.markdown("**Active System Broadcasts:**")
-            with h_col2:
-                if st.button("⚠️ Clear All Broadcasts", use_container_width=True):
+            st.markdown(f"""<div style="border-top: 1px solid {BORDER_COLOR}; margin: 16px 0 12px 0;"></div>""", unsafe_allow_html=True)
+            
+            nb_header1, nb_header2 = st.columns([3, 2])
+            with nb_header1:
+                st.markdown(f"""<span style="font-size: 12px; font-weight: 600; color: {TEXT_PRIMARY};">Active Announcements</span>""", unsafe_allow_html=True)
+            with nb_header2:
+                if st.button("Revoke All", use_container_width=True):
                     st.session_state['notices'] = []
                     st.rerun()
                     
             for n in reversed(st.session_state['notices']):
-                color = "#EF4444" if n['urgency'] == "High" else "#F59E0B" if n['urgency'] == "Medium" else "#06B6D4"
+                color = COLOR_DANGER if "Critical" in n['urgency'] else COLOR_WARNING if "Elevated" in n['urgency'] else ACCENT_PRIMARY
                 n_id = n.get('id', n['time'])
                 
-                n_col1, n_col2 = st.columns([5, 2])
-                with n_col1:
+                nc1, nc2 = st.columns([4, 1.2])
+                with nc1:
                     st.markdown(f"""
-                    <div style="border-left: 4px solid {color}; padding: 12px; background: #1E293B; margin-bottom: 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.2);">
+                    <div style="border-left: 3px solid {color}; padding: 8px 12px; background: {BG_CARD}; margin-bottom: 8px; border-radius: 4px;">
                         <div style="display: flex; justify-content: space-between;">
-                            <strong style="color: {color}; font-size: 14px;">[{n.get('type', 'Alert')}] {n['title']}</strong>
-                            <span style="font-size: 11px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #E5E7EB;">{n['time']}</span>
+                            <strong style="color: {TEXT_PRIMARY}; font-size: 12px;">[{n.get('type')}] {n['title']}</strong>
+                            <span style="font-size: 10px; color: {TEXT_MUTED};">{n['time']}</span>
                         </div>
-                        <div style="font-size: 13px; color: #9CA3AF; margin-top: 5px;">{n['msg'][:80]}...</div>
+                        <div style="font-size: 11px; color: {TEXT_SECONDARY}; margin-top: 4px;">{n['msg'][:75]}...</div>
                     </div>
                     """, unsafe_allow_html=True)
-                with n_col2:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("❌ Remove", key=f"del_{n_id}"):
+                with nc2:
+                    if st.button("Revoke", key=f"del_{n_id}", use_container_width=True):
                         st.session_state['notices'] = [x for x in st.session_state['notices'] if x.get('id', x['time']) != n_id]
-                        st.toast("✅ Broadcast successfully revoked.")
+                        st.toast("Advisory revoked.")
                         st.rerun()
-                
-        st.markdown("---")
-        st.markdown("**Automated SMS Gateway (Live Dispatch)**")
-        violators = df_c['min_bal_violation'].sum()
-        violators_df = df_c[df_c['min_bal_violation'] == 1].head(3)
+
+        # Automated SMS Gateway
+        st.markdown(f"""<div style="border-top: 1px solid {BORDER_COLOR}; margin: 20px 0 14px 0;"></div>""", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+            Automated SMS Notification Gateway
+        </div>
+        """, unsafe_allow_html=True)
         
-        st.warning(f"⚠️ {violators:,} accounts currently operating below minimum balance requirements.")
-        if st.button("Dispatch Targeted SMS Warnings"):
-            st.success(f"Gateway connection established. Routing SMS to {violators:,} numbers...")
+        violators = df_c['min_bal_violation'].sum()
+        st.caption(f"{violators:,} retail accounts currently breach mandatory minimum balance parameters.")
+        
+        if st.button("Dispatch Balance Warning SMS", use_container_width=True):
+            violators_df = df_c[df_c['min_bal_violation'] == 1].head(3)
             for _, row in violators_df.iterrows():
                 short_bal = f"₹{row['balance']:,.2f}"
                 min_req = f"₹{row['min_balance']:,.2f}"
                 st.markdown(f"""
-                <div style="background-color: #F3F4F6; padding: 10px; border-left: 3px solid #14B8A6; margin-bottom: 5px; border-radius: 4px; font-family: monospace;">
-                    <span style="color: #6B7280;">[{datetime.now().strftime('%H:%M:%S')}] SMS Sent -> </span> 
-                    <strong>{row['phone_number']}</strong> ({row['name']})<br>
-                    <span style="color: #0B1F3A;">"Dear {row['name']}, your FinEdge {row['account_type']} balance is {short_bal}. Please fund your account to maintain the required {min_req} min balance to avoid penal charges."</span>
+                <div style="background-color: {BG_CARD}; padding: 8px 10px; border-left: 3px solid {ACCENT_PRIMARY}; margin-bottom: 6px; border-radius: 4px; font-family: monospace; font-size: 11px;">
+                    <span style="color: {TEXT_MUTED};">[{datetime.now().strftime('%H:%M:%S')}] SMS Sent &rarr; </span> 
+                    <strong style="color: {TEXT_PRIMARY};">{row['phone_number']}</strong> ({row['name']})<br>
+                    <span style="color: {TEXT_SECONDARY};">"Dear {row['name']}, FinEdge {row['account_type']} balance is {short_bal}. Maintain minimum {min_req} to prevent regulatory penal charges."</span>
                 </div>
                 """, unsafe_allow_html=True)
-            st.markdown(f"<span style='font-size: 12px; color: #6B7280;'>... and {violators - 3} more messages dispatched successfully.</span>", unsafe_allow_html=True)
-                
-    with c_crm2:
-        st.markdown("**Active Support Tickets**")
+            st.toast(f"Dispatched SMS notifications to {violators:,} accounts.")
+
+    with col_crm2:
+        st.markdown(f"""
+        <div style="font-size: 12px; font-weight: 600; color: {TEXT_SECONDARY}; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">
+            Customer Service Ticket Registry
+        </div>
+        """, unsafe_allow_html=True)
         
-        def highlight_priority(val):
-            color = '#EF4444' if val == 'High' else '#F59E0B' if val == 'Medium' else '#22C55E'
-            return f'color: {color}; font-weight: bold'
+        def style_priority(val):
+            color = COLOR_DANGER if val == 'High' else COLOR_WARNING if val == 'Medium' else COLOR_SUCCESS
+            return f'color: {color}; font-weight: 600'
             
         st.dataframe(
-            df_tickets.style.map(highlight_priority, subset=['priority']),
-            use_container_width=True, 
-            height=400,
+            df_tickets.style.map(style_priority, subset=['priority']),
+            use_container_width=True,
+            height=460,
             hide_index=True
         )
 
+# --- Bottom Status Banner ---
+status_str = "ACTIVE INGESTION STREAM" if simulate else "SYSTEM PAUSED"
+st.markdown(f"""
+<div style="text-align: center; font-size: 12px; font-weight: 500; color: {TEXT_MUTED}; padding: 24px 0 10px 0; border-top: 1px solid {BORDER_COLOR}; margin-top: 40px;">
+    FinEdge Banking Intelligence Platform &nbsp;|&nbsp; Status: {status_str} &nbsp;|&nbsp; Engine: Random Forest Classifier v2.4 &nbsp;|&nbsp; Core Architecture: Real-Time Telemetry SOC
+</div>
+""", unsafe_allow_html=True)
 
-# --- Bottom Banner ---
-st.markdown(f'<div class="bottom-banner">📡 System Status: {"LIVE 🟢" if simulate else "PAUSED 🔴"} | Last Updated: Live | AI Engine: Random Forest v2.4</div>', unsafe_allow_html=True)
-
-# --- Simulation Engine ---
+# --- Background Telemetry Simulation Loop ---
 if simulate:
     num_txns = np.random.randint(1, 4)
     for _ in range(num_txns):
@@ -604,5 +975,5 @@ if simulate:
     st.session_state['time_series_y'].pop(0)
     st.session_state['time_series_y'].append(num_txns)
     
-    time.sleep(np.random.uniform(0.5, 1.5))
+    time.sleep(np.random.uniform(0.6, 1.4))
     st.rerun()
